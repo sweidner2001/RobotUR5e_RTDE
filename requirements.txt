@@ -1,0 +1,4 @@
+# Python dependencies for local scripts
+ur-rtde
+PyYAML
+
