@@ -1,5 +1,11 @@
+from pathlib import Path
+import sys
+
 import rtde_control
-import robotiq_gripper
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from robot_control.gripper import robotiq_gripper
 
 IP = "192.168.0.20"
 
@@ -7,13 +13,16 @@ SPEED_FAST = 1
 SPEED_SLOW = 0.5
 
 # Init gripper
-gripper = robotiq_gripper.RobotiqGripper()
-gripper.connect(IP, 63352)
-gripper.activate()
-print("Gripper activated")
+def activate_gripper(ip_address, port=63352):
+    gripper = robotiq_gripper.RobotiqGripper()
+    gripper.connect(ip_address, port)
+    gripper.activate()
+    print("Gripper activated")
+    return gripper
 
 # Init RTDE control interface
 rtde_c = rtde_control.RTDEControlInterface(IP)
+gripper = activate_gripper(ip_address=IP)
 
 # Define cube and target poses
 green_cube_pose = [0.7203031126388598, -0.06200542235339407, 0.2262273676576626, -2.2122743344153633, 2.2073320457497303, -0.04578027219250717]
