@@ -63,6 +63,11 @@ if ! python -m pip --version >/dev/null 2>&1; then
   exit 1
 fi
 
+# Register sys-code as a source root so imports like
+# "from robot_control.gripper import robotiq_gripper" work from any script.
+SITE_PACKAGES="$VENV_DIR/lib/python$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')/site-packages"
+echo "$PROJECT_ROOT/sys-code" > "$SITE_PACKAGES/sys-code.pth"
+
 # Keep pip up to date to reduce install issues with older bundled versions.
 python -m pip install --upgrade pip
 
