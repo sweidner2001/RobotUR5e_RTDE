@@ -1,6 +1,8 @@
 import rtde_control
 from robot_control.gripper import robotiq_gripper
-
+import os
+import yaml
+from pathlib import Path
 
 
 
@@ -16,14 +18,12 @@ class Gripper:
 
 class DemoStaticPickPlace:
 
-    IP = "192.168.0.20"
+    # Speed settings:
     SPEED_FAST = 1
     SPEED_SLOW = 0.5
 
-    # Cube positions and target position
+    # Cube positions:
     GREEN_CUBE_POSE = [0.5627132229616074, 0.11596701008253553, 0.24876122165623385, -2.2180565903435605, 2.222198641641369, -0.004145227964218369]
-    # OLD: GREEN_CUBE_POSE = [0.7203031126388598, -0.06200542235339407, 0.2262273676576626, -2.2122743344153633, 2.2073320457497303, -0.04578027219250717]
-    # ORANGE_CUBE_POSE = [0.546076897569226, 0.10579331434068523, 0.227791821061122, -2.217365794478296, 2.2211521894331345, -0.006537174599903164]
     ORANGE_CUBE_POSE = [0.4760917447925088, 0.11184615426941283, 0.24880910182565846, -2.2143680482786037, 2.2209951626155258, 0.02950518403548811]
     RED_CUBE_POSE = [0.6574531923678613, 0.11551071654555242, 0.24903293561016393, 2.22870297359331, -2.199503316573422, -0.017180771921204426]
     TARGET_POSE = [0.5577107189746524, -0.14468426474747512, 0.24911724698603727, 0.021081459063631788, 3.12212968663113, -0.007024128713232088]
@@ -31,12 +31,28 @@ class DemoStaticPickPlace:
 
 
     def __init__(self):
+        self.config = None
+        self.config = self.load_config('robot_config.yaml')['robot_params']['rtde_parameters']
+        self._init_robot(robot_ip=self.config['robot_ip'])
+
+
+
+    def load_config(self, config_file):
+        # 1. Config finden (liegt eine Ebene höher als dieses Script)
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        config_path = os.path.join(script_dir, '..', 'config', config_file)
+        print(f"Config path: {config_path}")
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+
+
+
+
+
+    def _init_robot(self, robot_ip=None):
         # Init RTDE control interface
-        self.rtde_c = rtde_control.RTDEControlInterface(self.IP)
-        self.gripper = Gripper.activate_gripper(ip_address=self.IP)
-
-
-
+        self.rtde_c = rtde_control.RTDEControlInterface(hostname=robot_ip)
+        self.gripper = Gripper.activate_gripper(ip_address=robot_ip)
 
 
     def place_cube(self, cube_pose, target_pose, cube_pose_z_offset=0.1, stack_position=0, cube_size=0.05, stack_offset=0.001):
@@ -106,6 +122,7 @@ class DemoStaticPickPlace:
 
 
 if __name__ == "__main__":
+
     demo = DemoStaticPickPlace()
 
     for idx in range(3):
