@@ -9,19 +9,42 @@ VENV_DIR="$PROJECT_ROOT/.venv"
 # Path to the dependency file used for pip installation.
 REQ_FILE="$PROJECT_ROOT/requirements.txt"
 
-# Create a virtual environment using python3 -m venv if available.
+# Prefer a compatible Python version for this project.
+# ur-rtde builds more reliably on Python 3.12/3.11 than on the default
+# Ubuntu 26.04 Python 3.14, so prefer those interpreters when available.
+choose_python() {
+  local candidates=(python3.12 python3.11 python3.10 python3)
+
+  for candidate in "${candidates[@]}"; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+# Create a virtual environment using the preferred Python interpreter.
 # If that fails, try virtualenv as a fallback.
 create_venv() {
-  # Preferred approach: stdlib venv from python3.
-  if command -v python3 >/dev/null 2>&1; then
-    if python3 -m venv "$VENV_DIR" >/dev/null 2>&1; then
+  local python_bin
+  python_bin="$(choose_python || true)"
+
+  if [[ -n "$python_bin" ]]; then
+    if "$python_bin" -m venv "$VENV_DIR" >/dev/null 2>&1; then
+      export PYTHON_BIN="$python_bin"
       return 0
     fi
   fi
 
   # Fallback approach: external virtualenv tool.
   if command -v virtualenv >/dev/null 2>&1; then
-    virtualenv "$VENV_DIR"
+    if [[ -n "${PYTHON_BIN:-}" ]]; then
+      virtualenv -p "$PYTHON_BIN" "$VENV_DIR"
+    else
+      virtualenv "$VENV_DIR"
+    fi
     return 0
   fi
 

@@ -21,11 +21,12 @@ class DemoStaticPickPlace:
     SPEED_SLOW = 0.5
 
     # Cube positions and target position
-    GREEN_CUBE_POSE = [0.7266856000383094, -0.06528322174343981, 0.2283489278836398, -2.2317014531059445, 2.2046761897580267, -0.008747817800563374]
+    GREEN_CUBE_POSE = [0.5627132229616074, 0.11596701008253553, 0.24876122165623385, -2.2180565903435605, 2.222198641641369, -0.004145227964218369]
     # OLD: GREEN_CUBE_POSE = [0.7203031126388598, -0.06200542235339407, 0.2262273676576626, -2.2122743344153633, 2.2073320457497303, -0.04578027219250717]
-    ORANGE_CUBE_POSE = [0.546076897569226, 0.10579331434068523, 0.227791821061122, -2.217365794478296, 2.2211521894331345, -0.006537174599903164]
-    RED_CUBE_POSE = [0.6816956855841501, 0.06513999277424651, 0.22789807272749696, 2.2338886805400917, -2.2075560324140544, 0.009118375571405407]
-    TARGET_POSE = [0.5444430205686733, -0.13796004809361231, 0.22622544638457637, -2.2342964896798456, 2.2039816889274517, -0.020637988724632735]
+    # ORANGE_CUBE_POSE = [0.546076897569226, 0.10579331434068523, 0.227791821061122, -2.217365794478296, 2.2211521894331345, -0.006537174599903164]
+    ORANGE_CUBE_POSE = [0.4760917447925088, 0.11184615426941283, 0.24880910182565846, -2.2143680482786037, 2.2209951626155258, 0.02950518403548811]
+    RED_CUBE_POSE = [0.6574531923678613, 0.11551071654555242, 0.24903293561016393, 2.22870297359331, -2.199503316573422, -0.017180771921204426]
+    TARGET_POSE = [0.5577107189746524, -0.14468426474747512, 0.24911724698603727, 0.021081459063631788, 3.12212968663113, -0.007024128713232088]
 
 
 
@@ -75,9 +76,9 @@ class DemoStaticPickPlace:
         # Move up with cube
         self.rtde_c.moveL(pose=[target_pose[0], target_pose[1], target_pose[2]+cube_pose_z_offset+stack_position*cube_size, target_pose[3], target_pose[4], target_pose[5]], speed=self.SPEED_FAST, acceleration=0.3)
         # Move back to initial position
-        self.rtde_c.moveL(pose=[cube_pose[0], cube_pose[1], cube_pose[2], cube_pose[3], cube_pose[4], cube_pose[5]], speed=self.SPEED_FAST, acceleration=0.3)
-        # Move down to cube
-        self.rtde_c.moveL(pose=cube_pose, speed=self.SPEED_SLOW, acceleration=0.3)
+        self.rtde_c.moveL(pose=[cube_pose[0], cube_pose[1], cube_pose[2]+cube_pose_z_offset, cube_pose[3], cube_pose[4], cube_pose[5]], speed=self.SPEED_FAST, acceleration=0.3)
+        # Move down to empty place
+        self.rtde_c.moveL(pose=[cube_pose[0], cube_pose[1], cube_pose[2]+stack_offset, cube_pose[3], cube_pose[4], cube_pose[5]], speed=self.SPEED_SLOW, acceleration=0.3)
         
         # Open gripper
         self.gripper.move_and_wait_for_pos(position=0, speed=100, force=100)
