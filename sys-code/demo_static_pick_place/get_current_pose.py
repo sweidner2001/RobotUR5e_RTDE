@@ -1,6 +1,9 @@
 import rtde_receive
+from config.Config import Config
 
-IP = "192.168.0.20"
 
-rtde_r = rtde_receive.RTDEReceiveInterface(IP)
+config = Config('robot_config.yaml').get_config()['robot_params']['rtde_parameters']
+
+
+rtde_r = rtde_receive.RTDEReceiveInterface(config['robot_ip'])
 print(f"Current TCP pose: {rtde_r.getActualTCPPose()}")
