@@ -1,4 +1,4 @@
 # Python dependencies for local scripts
-ur-rtde
-PyYAML
+PyYAML==6.0.3
+ur_rtde==1.6.5
 
