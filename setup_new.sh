@@ -202,6 +202,7 @@ init_pyenv(){
   fi
 }
 
+
 #********************* Workflows ************************
 uv_workflow() {
   if [[ ! -d "$VENV_DIR" ]]; then
@@ -215,7 +216,7 @@ uv_workflow() {
     echo "Using existing virtual environment: $VENV_DIR"
   fi
 
-  source "$VENV_DIR/bin/activate"
+  # source "$VENV_DIR/bin/activate"
   register_python_source_root
   install_dependencies_uv
 }
@@ -240,7 +241,7 @@ std_workflow() {
   fi
 
   # shellcheck disable=SC1091
-  source "$VENV_DIR/bin/activate"
+  # source "$VENV_DIR/bin/activate"
   check_pip_in_venv
   register_python_source_root
   install_dependencies_std
