@@ -46,9 +46,12 @@ use_uv_for_create_venv() {
 }
 
 error_text_create_venv_std() {
+  local target_python="$1"
+  local venv_package="${target_python}-venv"
+
   echo "Failed to create virtual environment."
   echo "Install one of the following and rerun:"
-  echo "  - python3-venv (for python3 -m venv) (Command: 'sudo apt install python3.12-venv')"
+  echo "  - $venv_package (for $target_python -m venv) (Command: 'sudo apt install $venv_package')"
   echo "  - virtualenv (Command: 'sudo apt install virtualenv')"
 }
 
@@ -128,13 +131,18 @@ create_venv_std() {
     return 0
   fi
 
-  error_text_create_venv_std
+  error_text_create_venv_std "$target_python"
   exit 1
 }
 
 # 5. Register $BASE_CODE_DIR as a source root (.pth file)
 register_python_source_root() {
-  SITE_PACKAGES="$VENV_DIR/lib/python$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')/site-packages"
+  local venv_python="$VENV_DIR/bin/python"
+  local py_ver
+  py_ver=$("$venv_python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+  SITE_PACKAGES="$VENV_DIR/lib/python$py_ver/site-packages"
+
+  # SITE_PACKAGES="$VENV_DIR/lib/python$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')/site-packages"
   if [[ -d "$PROJECT_ROOT/$BASE_CODE_DIR" && -d "$SITE_PACKAGES" ]]; then
     echo "$PROJECT_ROOT/$BASE_CODE_DIR" > "$SITE_PACKAGES/$BASE_CODE_DIR.pth"
   else
