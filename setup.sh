@@ -216,7 +216,7 @@ uv_workflow() {
     echo "Using existing virtual environment: $VENV_DIR"
   fi
 
-  # source "$VENV_DIR/bin/activate"
+  source "$VENV_DIR/bin/activate"
   register_python_source_root
   install_dependencies_uv
 }
