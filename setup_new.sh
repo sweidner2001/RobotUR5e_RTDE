@@ -2,16 +2,20 @@
 # Exit immediately on errors, treat unset variables as errors, and fail on pipeline errors.
 set -euo pipefail
 
-# Variables:
+#************************ Variables: ************************
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_CODE_DIR="sys-code"
 VENV_DIR="$PROJECT_ROOT/.venv"
 REQ_FILE="$PROJECT_ROOT/requirements.txt"
+PYTHON_VERSION_FILE="$PROJECT_ROOT/.python-version"
 USE_UV=false
 
 cd "$PROJECT_ROOT"
 
 
+
+
+#********************* Functions ************************
 # 1. Ask user about uv preference, check or install uv, and abort if impossible when chosen.
 use_uv_for_create_venv() {
   read -rp "Would you like to use uv for environment creation? (Y/n): " choice
@@ -50,6 +54,56 @@ error_text_create_venv_std() {
 
 
 
+
+# 2. Resolve Python version, display user's current version, and offer fallback or hints if missing.
+resolve_python_version() {
+  local target_python="python3"
+  local current_system_version="unknown"
+
+  if command -v python3 >/dev/null 2>&1; then
+    current_system_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")' 2>/dev/null || echo "unknown")
+  fi
+
+  if [[ -f "$PYTHON_VERSION_FILE" ]]; then
+    local pinned_version
+    pinned_version=$(tr -d '[:space:]' < "$PYTHON_VERSION_FILE")
+    if [[ -n "$pinned_version" ]]; then
+      local short_version
+      short_version=$(echo "$pinned_version" | cut -d. -f1-2)
+      
+      if command -v "python$short_version" >/dev/null 2>&1; then
+        target_python="python$short_version"
+        echo "Found .python-version ($pinned_version). Using $target_python for creating the .venv" >&2
+      else
+        echo "" >&2
+        echo "========================================================" >&2
+        echo "WARNING: Specified Python version ($pinned_version) from .python-version" >&2
+        echo "         is not installed on your system." >&2
+        echo "         Your current system Python version is: $current_system_version" >&2
+        echo "========================================================" >&2
+        echo "Hint: You can install version $pinned_version using:" >&2
+        echo "  - pyenv:   pyenv install $pinned_version" >&2
+        echo "  - Website: https://www.python.org/downloads/" >&2
+        echo "" >&2
+
+        read -rp "Would you like to use your default system Python ($current_system_version) instead? (y/N): " choice
+        case "$choice" in
+          [yY][eE][sS]|[yY])
+            echo "Proceeding with default system python3..." >&2
+            target_python="python3"
+            ;;
+          *)
+            echo "Error: Required Python version $pinned_version is not available and system Python fallback was declined." >&2
+            exit 1
+            ;;
+        esac
+      fi
+    fi
+  fi
+
+  echo "$target_python"
+}
+
 # 3. Create virtual environment with uv.
 create_venv_uv() {
   echo "Creating virtual environment with uv..."
@@ -58,10 +112,12 @@ create_venv_uv() {
 
 # 4. Create virtual environment with python3-venv or virtualenv
 create_venv_std() {
+  local target_python
+  target_python=$(resolve_python_version)
 
-  # Preferred approach: stdlib venv from python3.
-  if command -v python3 >/dev/null 2>&1; then
-    if python3 -m venv "$VENV_DIR" >/dev/null 2>&1; then
+  # Preferred approach: stdlib venv from target python.
+  if command -v "$target_python" >/dev/null 2>&1; then
+    if "$target_python" -m venv "$VENV_DIR" >/dev/null 2>&1; then
       return 0
     fi
   fi
@@ -75,7 +131,6 @@ create_venv_std() {
   error_text_create_venv_std
   exit 1
 }
-
 
 # 5. Register $BASE_CODE_DIR as a source root (.pth file)
 register_python_source_root() {
@@ -107,17 +162,28 @@ install_dependencies_std() {
     echo "Installing dependencies with standard pip..."
     python -m pip install -r "$REQ_FILE"
   else
-    # Continue without failing if the dependency file is missing.
     echo "No requirements.txt found. Skipping dependency install."
+  fi
+}
+
+
+# 8. Checks
+pip_check_in_venv() {
+  if ! python -m pip --version >/dev/null 2>&1; then
+    echo "The virtual environment exists, but pip is not available inside it."
+    echo "Install one of the following and rerun setup.sh:"
+    echo "  - python3-venv"
+    echo "  - python3-pip"
+    exit 1
   fi
 }
 
 
 
 
-# --- Execution Workflow ---
+
+#********************* Workflows ************************
 uv_workflow() {
-  # Create or repair venv
   if [[ ! -d "$VENV_DIR" ]]; then
     echo "Creating virtual environment in: $VENV_DIR"
     create_venv_uv
@@ -135,7 +201,6 @@ uv_workflow() {
 }
 
 std_workflow() {
-  # Create or repair venv
   if [[ ! -d "$VENV_DIR" ]]; then
     echo "Creating virtual environment in: $VENV_DIR"
     create_venv_std
@@ -147,28 +212,16 @@ std_workflow() {
     echo "Using existing virtual environment: $VENV_DIR"
   fi
 
-  # Activate the virtual environment
   # shellcheck disable=SC1091
   source "$VENV_DIR/bin/activate"
-
-  # Sanity-check only in the standard workflow: pip available inside .venv?
-  if ! python -m pip --version >/dev/null 2>&1; then
-    echo "The virtual environment exists, but pip is not available inside it."
-    echo "Install one of the following and rerun setup.sh:"
-    echo "  - python3-venv"
-    echo "  - python3-pip"
-    exit 1
-  fi
-
+  pip_check_in_venv
   register_python_source_root
   install_dependencies_std
 }
 
 
 
-
-
-# --- Main Execution ---
+#******************* Main Execution ******************************
 # Ask user for uv preference first
 use_uv_for_create_venv
 
@@ -181,7 +234,3 @@ fi
 
 # Final usage hint for the user.
 echo "Setup complete. Activate with: source .venv/bin/activate"
-
-
-
-
