@@ -146,7 +146,8 @@ register_python_source_root() {
   py_ver=$("$venv_python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
   
   SITE_PACKAGES="$VENV_DIR/lib/python$py_ver/site-packages"
-
+  # SITE_PACKAGES="$VENV_DIR/lib/python$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')/site-packages"
+  
   if [[ -d "$PROJECT_ROOT/$BASE_CODE_DIR" && -d "$SITE_PACKAGES" ]]; then
     echo "$PROJECT_ROOT/$BASE_CODE_DIR" > "$SITE_PACKAGES/$BASE_CODE_DIR.pth"
   else
@@ -156,12 +157,14 @@ register_python_source_root() {
 
 # 6. Install dependencies using uv pip.
 install_dependencies_uv() {
-  if [[ -f "$REQ_FILE" ]]; then
-    echo "Installing dependencies with uv..."
-    uv pip install -r "$REQ_FILE"
-  else
-    echo "No requirements.txt found. Skipping dependency install."
-  fi
+    local venv_python="$VENV_DIR/bin/python"
+
+    if [[ -f "$REQ_FILE" ]]; then
+        echo "Installing dependencies with uv..."
+        uv pip install --python "$venv_python" -r "$REQ_FILE"
+    else
+        echo "No requirements.txt found. Skipping dependency install."
+    fi
 }
 
 # 7. Install dependencies using standard pip.
@@ -216,7 +219,7 @@ uv_workflow() {
     echo "Using existing virtual environment: $VENV_DIR"
   fi
 
-  # source "$VENV_DIR/bin/activate"
+  #source "$VENV_DIR/bin/activate"
   register_python_source_root
   install_dependencies_uv
 }
