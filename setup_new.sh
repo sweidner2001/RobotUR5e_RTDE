@@ -113,7 +113,7 @@ resolve_python_version() {
 # 3. Create virtual environment with uv.
 create_venv_uv() {
   echo "Creating virtual environment with uv..."
-  uv venv "$VENV_DIR"
+  uv venv --seed "$VENV_DIR"
 }
 
 # 4. Create virtual environment with python3-venv or virtualenv
