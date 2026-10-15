@@ -13,9 +13,8 @@ USE_UV=false
 cd "$PROJECT_ROOT"
 
 
-
-
 #********************* Functions ************************
+
 # 1. Ask user about uv preference, check or install uv, and abort if impossible when chosen.
 use_uv_for_create_venv() {
   read -rp "Would you like to use uv for environment creation? (Y/n): " choice
@@ -55,17 +54,9 @@ error_text_create_venv_std() {
   echo "  - virtualenv (Command: 'sudo apt install virtualenv')"
 }
 
-
-
-
-# 2. Resolve Python version, display user's current version, and offer fallback or hints if missing.
+# 2. Unified Python version resolution and check
 resolve_python_version() {
   local target_python="python3"
-  local current_system_version="unknown"
-
-  if command -v python3 >/dev/null 2>&1; then
-    current_system_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")' 2>/dev/null || echo "unknown")
-  fi
 
   if [[ -f "$PYTHON_VERSION_FILE" ]]; then
     local pinned_version
@@ -74,32 +65,44 @@ resolve_python_version() {
       local short_version
       short_version=$(echo "$pinned_version" | cut -d. -f1-2)
       
+      # Select target candidate binary
       if command -v "python$short_version" >/dev/null 2>&1; then
         target_python="python$short_version"
-        echo "Found .python-version ($pinned_version). Using $target_python for creating the .venv" >&2
       else
+        target_python="python3"
+      fi
+
+      # Get actual version of the selected candidate
+      local actual_version="unknown"
+      if command -v "$target_python" >/dev/null 2>&1; then
+        actual_version=$("$target_python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")' 2>/dev/null || echo "unknown")
+      fi
+
+      # Single unified check: if actual version differs from pinned version
+      if [[ "$actual_version" != "$pinned_version" ]]; then
         echo "" >&2
         echo "========================================================" >&2
-        echo "WARNING: Specified Python version ($pinned_version) from .python-version" >&2
-        echo "         is not installed on your system." >&2
-        echo "         Your current system Python version is: $current_system_version" >&2
+        echo "WARNING: .python-version requests version $pinned_version," >&2
+        echo "         but your system provides version $actual_version ($target_python)." >&2
+        echo "         Unlike 'uv', standard 'venv' cannot auto-download exact versions." >&2
         echo "========================================================" >&2
         echo "Hint: You can install version $pinned_version using:" >&2
         echo "  - pyenv:   pyenv install $pinned_version" >&2
         echo "  - Website: https://www.python.org/downloads/" >&2
         echo "" >&2
 
-        read -rp "Would you like to use your default system Python ($current_system_version) instead? (y/N): " choice
+        read -rp "Do you want to proceed using system version $actual_version ($target_python) instead? (y/N): " choice
         case "$choice" in
           [yY][eE][sS]|[yY])
-            echo "Proceeding with default system python3..." >&2
-            target_python="python3"
+            echo "Proceeding with system version $actual_version..." >&2
             ;;
           *)
-            echo "Error: Required Python version $pinned_version is not available and system Python fallback was declined." >&2
+            echo "Setup aborted. Use 'uv' workflow to auto-download exact versions." >&2
             exit 1
             ;;
         esac
+      else
+        echo "Found .python-version ($pinned_version). Using $target_python for creating the .venv" >&2
       fi
     fi
   fi
@@ -119,6 +122,7 @@ create_venv_std() {
   target_python=$(resolve_python_version)
 
   # Preferred approach: stdlib venv from target python.
+  # If Pyenv is installed, then 3.12 will route to the exact Python version specified in the script, if it is installed.
   if command -v "$target_python" >/dev/null 2>&1; then
     if "$target_python" -m venv "$VENV_DIR" >/dev/null 2>&1; then
       return 0
@@ -140,9 +144,9 @@ register_python_source_root() {
   local venv_python="$VENV_DIR/bin/python"
   local py_ver
   py_ver=$("$venv_python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+  
   SITE_PACKAGES="$VENV_DIR/lib/python$py_ver/site-packages"
 
-  # SITE_PACKAGES="$VENV_DIR/lib/python$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')/site-packages"
   if [[ -d "$PROJECT_ROOT/$BASE_CODE_DIR" && -d "$SITE_PACKAGES" ]]; then
     echo "$PROJECT_ROOT/$BASE_CODE_DIR" > "$SITE_PACKAGES/$BASE_CODE_DIR.pth"
   else
@@ -162,22 +166,24 @@ install_dependencies_uv() {
 
 # 7. Install dependencies using standard pip.
 install_dependencies_std() {
+  local venv_python="$VENV_DIR/bin/python"
+
   # Keep pip up to date to reduce install issues with older bundled versions.
-  python -m pip install --upgrade pip
+  "$venv_python" -m pip install --upgrade pip
 
   # Install dependencies if requirements.txt exists.
   if [[ -f "$REQ_FILE" ]]; then
     echo "Installing dependencies with standard pip..."
-    python -m pip install -r "$REQ_FILE"
+    "$venv_python" -m pip install -r "$REQ_FILE"
   else
     echo "No requirements.txt found. Skipping dependency install."
   fi
 }
 
-
 # 8. Checks
-pip_check_in_venv() {
-  if ! python -m pip --version >/dev/null 2>&1; then
+check_pip_in_venv() {
+  local venv_python="$VENV_DIR/bin/python"
+  if ! "$venv_python" -m pip --version >/dev/null 2>&1; then
     echo "The virtual environment exists, but pip is not available inside it."
     echo "Install one of the following and rerun setup.sh:"
     echo "  - python3-venv"
@@ -186,9 +192,15 @@ pip_check_in_venv() {
   fi
 }
 
-
-
-
+init_pyenv(){
+  # Initialize pyenv if available so standard workflow respects .python-version exact patch versions
+  if command -v pyenv >/dev/null 2>&1; then
+    export PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+    export PATH="$PYENV_ROOT/shims:$PATH"
+    eval "$(pyenv init -)" || true
+    echo "Detected pyenv. Active pyenv version: $(pyenv version-name 2>/dev/null || echo 'none')"
+  fi
+}
 
 #********************* Workflows ************************
 uv_workflow() {
@@ -208,7 +220,14 @@ uv_workflow() {
   install_dependencies_uv
 }
 
+
+
+
 std_workflow() {
+
+  # if pyenv is available, then activate it. It will route the venv-creation to the specified python package or help to install the python package
+  init_pyenv
+
   if [[ ! -d "$VENV_DIR" ]]; then
     echo "Creating virtual environment in: $VENV_DIR"
     create_venv_std
@@ -222,12 +241,10 @@ std_workflow() {
 
   # shellcheck disable=SC1091
   source "$VENV_DIR/bin/activate"
-  pip_check_in_venv
+  check_pip_in_venv
   register_python_source_root
   install_dependencies_std
 }
-
-
 
 #******************* Main Execution ******************************
 # Ask user for uv preference first
